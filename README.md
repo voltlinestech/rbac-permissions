@@ -1,5 +1,4 @@
 # Django RBAC Permissions
-====
 
 A Django package which enables RBAC with hierarchy and constraints enabled.
 
@@ -35,6 +34,15 @@ Quick Start
 
    You must also set ```MODULE_CONFIGURATION_PATH``` as the path, in which your model is residing.
 
-4. Start the development server and visit http://127.0.0.1:8000/admin/
+4. If you also want to control the authorization in your admin page, you must
+   add the middleware class ```CheckAdminRoleAuthorizationMiddleware``` to your
+   MIDDLEWARE configuration in your Django settings file:
+   ```python
+    MIDDLEWARE = [
+    ...
+    'rbac_permissions.middleware.CheckAdminRoleAuthorizationMiddleware'
+    ]
+   ```
+5. Start the development server and visit http://127.0.0.1:8000/admin/
    to create a Role or Transaction.
 

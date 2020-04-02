@@ -10,3 +10,6 @@ DEFAULT_URLCONF = 'ROOT_URLCONF'
 DEFAULT_ADMIN_PERMISSION_NAME = 'admin'
 DEFAULT_ADMIN_URL = '/admin/'
 DEFAULT_ADMIN_URL_NAME = 'admin:index'
+
+# Optional 3rd party package names
+DJANGO_JSON_WIDGET = 'django_json_widget'

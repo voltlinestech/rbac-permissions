@@ -10,8 +10,10 @@ from django.contrib.auth.models import Group, Permission
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from django.contrib.postgres import fields
 
+from .constants import DJANGO_JSON_WIDGET
 from .models import Role, Transaction, RoleMembership
 from .helpers import get_all_urls_with_names
+
 
 # Get the generic User model
 User = get_user_model()
@@ -26,7 +28,7 @@ except ImportError:
     JSONEditorWidget = forms.Textarea
 finally:
     INSTALLED_APPS = getattr(settings, 'INSTALLED_APPS', None)
-    if 'django_json_widget' not in INSTALLED_APPS:
+    if DJANGO_JSON_WIDGET not in INSTALLED_APPS:
         JSONEditorWidget = forms.Textarea
 
 
@@ -37,10 +39,11 @@ class RoleAdminForm(forms.ModelForm):
         exclude = ()
 
     users = forms.ModelMultipleChoiceField(
-        queryset=User.objects.filter(is_active=True),
+        queryset=User.objects.all(),
         required=False,
         widget=FilteredSelectMultiple('users', False)
     )
+
     permissions = forms.ModelMultipleChoiceField(
         queryset=Permission.objects.all(),
         required=False,
@@ -94,6 +97,7 @@ class TransactionAdminForm(forms.ModelForm):
 # Admin Classes
 class RoleMembershipInline(admin.TabularInline):
     model = RoleMembership
+    raw_id_fields = ('transaction', 'permission')
 
 
 class RoleAdmin(admin.ModelAdmin):
