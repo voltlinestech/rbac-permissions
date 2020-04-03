@@ -8,7 +8,7 @@ from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.contrib.admin.widgets import FilteredSelectMultiple
-from django.contrib.postgres import fields
+from django.contrib.postgres.fields import jsonb
 
 from .constants import DJANGO_JSON_WIDGET
 from .models import Role, Transaction, RoleMembership
@@ -109,7 +109,7 @@ class RoleAdmin(admin.ModelAdmin):
 
 class TransactionAdmin(admin.ModelAdmin):
     formfield_overrides = {
-        fields.JSONField: {
+        jsonb.JSONField: {
             'widget': JSONEditorWidget
         }
     }

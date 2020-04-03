@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+# TODO
+from .fields import *  # noqa
+
 from django.contrib.auth.models import Group, Permission
-from django.contrib.postgres.fields import JSONField
+from django.contrib.postgres.fields import jsonb
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
 
@@ -11,8 +14,8 @@ from .signals import role_pre_save_actions, role_post_save_actions
 
 class Transaction(models.Model):
     name = models.CharField(max_length=255, blank=False)
-    paths = JSONField(default=list, null=True, blank=True)
-    rules = JSONField(default=dict, null=True, blank=True)
+    paths = jsonb.JSONField(default=list, null=True, blank=True)
+    rules = jsonb.JSONField(default=dict, null=True, blank=True)
 
     def __str__(self):
         return self.name

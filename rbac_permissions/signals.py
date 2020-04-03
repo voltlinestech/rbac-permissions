@@ -56,9 +56,10 @@ def role_post_save_actions(instance, created):
         granted_modules.extend(module_names)
         # add any other module level parent permissions which are not stated
         # in your module configuration model
-        granted_modules.extend(
-            list(parent.permission_set.values_list('codename', flat=True))
-        )
+        if parent:
+            granted_modules.extend(
+                list(parent.permission_set.values_list('codename', flat=True))
+            )
     except ImportError:
         pass
 

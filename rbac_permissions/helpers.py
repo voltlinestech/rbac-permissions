@@ -3,11 +3,14 @@ from django.contrib.auth.models import Group, Permission
 from django.urls.resolvers import RegexURLPattern
 
 from .constants import (
+    ALLOW_ALL_ROLES_SYMBOL,
     DEFAULT_ADMIN_URL as admin_url,
     DEFAULT_REQUEST_METHOD,
     DEFAULT_URLCONF as urlconf,
-    REQUEST_METHODS_TO_CRUD_OPERATIONS
+    DEFAULT_GRANT_NONEXISTENT_PATH_ACCESS,
+    REQUEST_METHODS_TO_CRUD_OPERATIONS,
 )
+from .models import Transaction
 
 
 def is_in_group_tree(user, group_name):
@@ -22,7 +25,7 @@ def is_in_group_tree(user, group_name):
     this means that the user's group is senior to the given group_name.
 
     Args:
-        user: A Profile instance.
+        user: A User instance.
         group_name: A string of a valid group name.
 
     Returns:
@@ -61,7 +64,7 @@ def check_user_group_permission(user, permission_name, resolved_path,
     Checks if the given user is granted the current transaction.
 
     Args:
-        user (Profile): the current attempting user
+        user (User): the current attempting user
         permission_name (str): the related transaction's permission name,
                          it is always related to a module. (offers, etc..)
         resolved_path (str): The basename of the resolved url
@@ -123,7 +126,7 @@ def check_user_group_permission(user, permission_name, resolved_path,
             REQUEST_METHODS_TO_CRUD_OPERATIONS.get(request_method)
         )
         is_matching_permission = (role.name in allowed_roles or
-                                  '*' in allowed_roles)
+                                  ALLOW_ALL_ROLES_SYMBOL in allowed_roles)
         # break if a matching permission is found
         if is_matching_permission:
             break
@@ -161,3 +164,64 @@ def get_all_urls_with_names():
     all_url_names.append(admin_url)
 
     return all_url_names
+
+
+def is_user_permitted(user, group_required, url_name, method):
+    """
+    Check if the given user is permitted to access a resource, which can only
+    be accessed by the group_required parameter.
+
+    Args:
+        user (User): a User instance.
+        group_required (str): the group / role name that the user must hold
+                              in order to access a resource.
+        url_name (str): the name of the url. It is the resource to be accessed.
+        method (str): the lowered request method.
+
+    Returns:
+        (tuple(bool, bool)): First boolean: whether the user is permitted
+                             Second boolean: whether the user group / role
+                                             is within the required group tree.
+    """
+
+    is_permitted = False
+    is_in_tree = False
+
+    if user.is_superuser:
+        return True, True
+
+    # this will check the Groups tree to see if the current
+    # user's group is a direct child of the given group, is parent of the
+    # group or equal to the given group
+    is_in_tree = is_in_group_tree(user, group_required)
+
+    # it is a direct or indirect child so we need to check if this
+    # user's group has this view's method permissions.
+    if is_in_tree:
+        transaction = Transaction.objects.filter(
+            paths__icontains=url_name
+        ).last()
+        # if the current url path does not belong to any transaction,
+        # decide if this means that the access is not granted or
+        # a nonexistent path should be granted all accesses.
+        if not transaction:
+            GRANT_NONEXISTENT_PATH_ACCESS = getattr(
+                settings, 'GRANT_NONEXISTENT_PATH_ACCESS',
+                DEFAULT_GRANT_NONEXISTENT_PATH_ACCESS
+            )
+            return GRANT_NONEXISTENT_PATH_ACCESS, GRANT_NONEXISTENT_PATH_ACCESS
+
+        permission_name = transaction.name
+
+        # the format is: (basename of the routed url_method name)
+        matching_permission = check_user_group_permission(
+            user,
+            permission_name,
+            url_name,
+            method
+        )
+        is_permitted = matching_permission
+    else:
+        is_permitted = False
+
+    return is_permitted, is_in_tree

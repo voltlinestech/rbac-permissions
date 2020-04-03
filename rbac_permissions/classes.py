@@ -1,66 +1,69 @@
 from rest_framework import permissions
 
-from .helpers import check_user_group_permission, is_in_group_tree
+from django.conf import settings
 
-from .models import Transaction
+from .constants import DEFAULT_ROLE_RULE_DENIED_ACCESS_MESSAGE
+from .helpers import is_user_permitted
 
 
 class GroupPermission(permissions.BasePermission):
+    """A Permission class, which checks the role authorization of a user."""
+
     message = 'Only this group is allowed'
     groups_required = None
 
     def has_permission(self, request, view):
+        """Overriden method, which checks role authorization of the user.
+
+        Args:
+            request (Request): the current request object
+            view (View): the current View object
+
+        Returns:
+            (bool): True if the user is granted access.
+        """
+
         # allow all access if the user is a superuser
         is_permitted = False
-        is_in_tree = False
+        is_group_in_tree = False
 
         if request.user.is_superuser:
             return True
 
-        # this will check the Groups tree to see if the current
-        # user's group is a direct child of the given group, is parent of the
-        # group or equal to the given group
+        # prepare the url name
+        url_name = request.resolver_match.url_name
+
+        # for each group required, check if the current user is
+        # senior / junior or equivalent to this required group within the
+        # hierarchy
         for group_required in self.groups_required:
-            is_in_tree = is_in_group_tree(
-                request.user, group_required)
-
-            # it is a direct or indirect child so we need to check if this
-            # user's group has this view's method permissions.
-            if is_in_tree:
-                url_name = request.resolver_match.url_name
-                transaction = Transaction.objects.filter(
-                    paths__icontains=url_name
-                ).last()
-                if not transaction:
-                    continue
-
-                permission_name = transaction.name
-
-                # the format is: (basename of the routed url_method name)
-                matching_permission = check_user_group_permission(
-                    request.user, permission_name,
-                    request.resolver_match.url_name,
-                    request.method.lower(),
-                )
-                is_permitted |= matching_permission
-            else:
-                is_permitted |= False
-
-        if is_in_tree and not is_permitted:
-            self.message = (
-                'You belong to the required role, '
-                'but are not permitted to commit this transaction.'
+            # is_in_tree means that the user group / role is within the
+            # required group / role tree (parent - child or equivalent)
+            user_permitted, is_in_tree = is_user_permitted(
+                request.user,
+                group_required,
+                url_name,
+                request.method.lower()
             )
+            is_permitted |= user_permitted
+            is_group_in_tree |= is_in_tree
 
+        if is_group_in_tree and not is_permitted:
+            message = getattr(
+                settings,
+                'ROLE_RULE_DENIED_ACCESS_MESSAGE',
+                DEFAULT_ROLE_RULE_DENIED_ACCESS_MESSAGE
+            )
+            self.message = message
         return is_permitted
 
 
 # Mixins
 class MultiplePermissionsMixin(object):
-    """
-    A mixin class which enables conditional permission checks.
-    """
+    """A mixin class which enables conditional permission checks."""
+
     def check_permissions(self, request):
+        """Run has_permission for each permission class on the view."""
         exception_states = []
         permissions = self.get_permissions()
 
