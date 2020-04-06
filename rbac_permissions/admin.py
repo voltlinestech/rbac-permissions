@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+import json
+
 from django import forms
 
 from django.conf import settings
@@ -114,6 +116,27 @@ class TransactionAdmin(admin.ModelAdmin):
         }
     }
     form = TransactionAdminForm
+
+    def save_model(self, request, obj, form, change):
+        if 'paths' in form.changed_data:
+            db_instance = Transaction.objects.get(pk=obj.pk)
+            added_paths = set(obj.paths) - set(db_instance.paths)
+
+            rules_to_add = {
+                path_name: {
+                    'create': [],
+                    'read': [],
+                    'update': [],
+                    'delete': []
+                } for path_name in added_paths
+            }
+            rules = obj.rules
+            if isinstance(rules, str):
+                rules = rules.replace("\'", "\"")
+                rules = json.loads(rules)
+            updated_rules = {**rules, **rules_to_add}
+            obj.rules = updated_rules
+        super().save_model(request, obj, form, change)
 
 
 admin.site.register(Role, RoleAdmin)
