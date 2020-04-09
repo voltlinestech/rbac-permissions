@@ -33,7 +33,6 @@ def is_in_group_tree(user, group_name):
                                  to the given group within the tree.
     """
 
-    is_parent = False
     is_child = False
     is_equal = False
 
@@ -45,13 +44,11 @@ def is_in_group_tree(user, group_name):
         except Group.role.RelatedObjectDoesNotExist:
             continue
         else:
-            is_parent = group_name in (
-                role.children.values_list('name', flat=True)
-            )
             is_equal = role.name == group_name
             # is the user role the child of the required group
-            is_child = role.parent.name == group_name if role.parent else False
-            if is_parent or is_equal:
+            is_child = check_is_child(role, group_name)
+
+            if is_child or is_equal:
                 break
 
     is_in_group_tree = any([is_child, is_equal])
@@ -127,6 +124,11 @@ def check_user_group_permission(user, permission_name, resolved_path,
         )
         is_matching_permission = (role.name in allowed_roles or
                                   ALLOW_ALL_ROLES_SYMBOL in allowed_roles)
+        is_child = (
+            sum([int(check_is_child(role, role_name))
+                 for role_name in allowed_roles]) != 0
+        )
+        is_matching_permission |= is_child
         # break if a matching permission is found
         if is_matching_permission:
             break
@@ -225,3 +227,29 @@ def is_user_permitted(user, group_required, url_name, method):
         is_permitted = False
 
     return is_permitted, is_in_tree
+
+
+def check_is_child(role, group_name):
+    """
+    Check if the role is the direct or indirect child of the group name.
+
+    Args:
+        role (Role): a Role instance
+        group_name (str): a group name.
+
+    Returns:
+        (bool) whether role is a child of group name
+    """
+
+    parent = role.parent
+    if not parent:
+        return False
+
+    is_tree_traversed = False
+    is_child = False
+    # traverse the parent tree
+    while not is_tree_traversed:
+        is_child |= parent.name == group_name
+        parent = parent.parent
+        is_tree_traversed = parent is None or is_child
+    return is_child
