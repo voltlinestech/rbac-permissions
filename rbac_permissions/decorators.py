@@ -1,6 +1,7 @@
 import functools
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 
@@ -41,12 +42,21 @@ def user_groups_required(groups_required=None):
             # get the passed required user group/role names
             groups_required = kwargs.pop('groups_required')
 
+            # if the user is anonymous, try to fetch it from query parameters
+            user_id = (request.GET.get('rbac_user')
+                       if request.user.is_anonymous else None)
+            if user_id:
+                User = get_user_model()
+                user = User.objects.get(id=user_id)
+            else:
+                user = request.user
+
             # for each group required, check if the current user is
             # senior / junior or equivalent to this required group within the
             # hierarchy
             for group_required in groups_required:
                 user_permitted, is_in_tree = is_user_permitted(
-                    request.user, group_required, url_name,
+                    user, group_required, url_name,
                     request.method.lower())
                 is_permitted |= user_permitted
                 is_group_in_tree |= is_in_tree

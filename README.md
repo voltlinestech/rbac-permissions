@@ -53,4 +53,11 @@ Quick Start
 6. Start the development server and visit http://127.0.0.1:8000/admin/
    to create a Role or Transaction.
 
+Notes
+-----
 
+If you internally route your views to other views in your application, there seems 
+to be a bug related to Django's authentication backends, which results in removing the current user from the request context.
+So if you are using this pattern often in your code, make sure you pass 'rbac_user={current_user_id}' as a query parameter, so that the current authenticated user is fetched from the database instead from the request object.
+
+This is a temporary solution, will be trying to find a more suitable solution.

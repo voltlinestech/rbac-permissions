@@ -1,6 +1,7 @@
 from rest_framework import permissions
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 
 from .constants import DEFAULT_ROLE_RULE_DENIED_ACCESS_MESSAGE
 from .helpers import is_user_permitted
@@ -33,6 +34,15 @@ class GroupPermission(permissions.BasePermission):
         # prepare the url name
         url_name = request.resolver_match.url_name
 
+        # if the user is anonymous, try to fetch it from query parameters
+        user_id = (request.GET.get('rbac_user')
+                   if request.user.is_anonymous else None)
+        if user_id:
+            User = get_user_model()
+            user = User.objects.get(id=user_id)
+        else:
+            user = request.user
+
         # for each group required, check if the current user is
         # senior / junior or equivalent to this required group within the
         # hierarchy
@@ -40,7 +50,7 @@ class GroupPermission(permissions.BasePermission):
             # is_in_tree means that the user group / role is within the
             # required group / role tree (parent - child or equivalent)
             user_permitted, is_in_tree = is_user_permitted(
-                request.user,
+                user,
                 group_required,
                 url_name,
                 request.method.lower()
